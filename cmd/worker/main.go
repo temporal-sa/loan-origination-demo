@@ -25,6 +25,7 @@ func main() {
 	// Register activities
 	w.RegisterActivity(activities.GenerateLoanAgreement)
 	w.RegisterActivity(activities.ProcessFunding)
+	w.RegisterActivity(activities.CreditScoreCheck)
 
 	log.Println("Starting Temporal worker...")
 	err = w.Run(nil)

@@ -184,6 +184,12 @@ class PersonaManager {
                 <span class="info-value">${loan.documents.length} uploaded</span>
             </div>` : '';
 
+        const creditScoreInfo = loan.credit_score ?
+            `<div class="info-item">
+                <span class="info-label">Credit Score</span>
+                <span class="info-value">${loan.credit_score.score || 'N/A'}</span>
+            </div>` : '';
+
         const appraisalInfo = loan.appraisal ? 
             `<div class="info-item">
                 <span class="info-label">Property Value</span>
@@ -231,6 +237,7 @@ class PersonaManager {
                         <span class="info-label">Email</span>
                         <span class="info-value">${loan.borrower_email}</span>
                     </div>
+                    ${creditScoreInfo}
                     ${documentsInfo}
                     ${appraisalInfo}
                     ${underwritingInfo}
@@ -526,6 +533,14 @@ class PersonaManager {
                     <h4>Appraisal</h4>
                     <p><strong>Property Value:</strong> $${loan.appraisal.property_value?.toLocaleString()}</p>
                     <p><strong>Notes:</strong> ${loan.appraisal.appraisal_notes || 'N/A'}</p>
+                </div>
+                ` : ''}
+                
+                ${loan.credit_score ? `
+                <div class="detail-section">
+                    <h4>Credit Score</h4>
+                    <p><strong>Credit Score:</strong> ${loan.credit_score.score}</p>
+                    ${loan.credit_score.attempt_count ? `<p><strong>Attempts:</strong> ${loan.credit_score.attempt_count}</p>` : ''}
                 </div>
                 ` : ''}
                 

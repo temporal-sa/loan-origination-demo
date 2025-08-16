@@ -72,6 +72,7 @@ Open your browser and navigate to:
    - Switch to "Appraiser" role
    - Complete property appraisal for applications
    - Enter property value and notes
+   - Trigger Credit score check API automatically. It will fail twice snd succeed 3rd time (simulated)
 
 5. **Underwriter**: 
    - Switch to "Underwriter" role

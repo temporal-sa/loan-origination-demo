@@ -129,6 +129,7 @@ func (h *LoanHandler) GetLoanApplications(c *gin.Context) {
 				"workflow_id":           loanData.LoanApplication.WorkflowID,
 				"documents":             loanData.Documents,
 				"appraisal":             loanData.Appraisal,
+				"credit_score":          loanData.CreditScore,
 				"underwriting_decision": loanData.UnderwritingDecision,
 			}
 			loanResponses = append(loanResponses, flatLoan)
