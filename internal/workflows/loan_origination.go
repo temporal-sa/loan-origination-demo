@@ -88,7 +88,6 @@ type CreditScore struct {
 	ID           string     `json:"id"`
 	Score        int        `json:"score"`
 	Status       string     `json:"status"`
-	AttemptCount int        `json:"attempt_count"`
 	CompletedAt  *time.Time `json:"completed_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 }
@@ -340,7 +339,6 @@ func runWorkflowSteps(ctx workflow.Context, state *LoanOriginationState) error {
 				state.CreditScore = &CreditScore{
 					ID:           "credit-score-" + state.LoanApplication.ID,
 					Status:       "in_progress",
-					AttemptCount: 0,
 					CreatedAt:    workflow.Now(ctx),
 				}
 			}
@@ -359,17 +357,14 @@ func runWorkflowSteps(ctx workflow.Context, state *LoanOriginationState) error {
 			retryCtx := workflow.WithActivityOptions(ctx, retryOptions)
 
 			var creditScoreResult *activities.CreditScoreCheckResult
-			state.CreditScore.AttemptCount++
 			err := workflow.ExecuteActivity(retryCtx, activities.CreditScoreCheck, activities.CreditScoreCheckInput{
 				LoanApplicationID: state.LoanApplication.ID,
 				BorrowerName:      state.LoanApplication.BorrowerName,
-				AttemptCount:      state.CreditScore.AttemptCount,
 			}).Get(ctx, &creditScoreResult)
 
 			if err != nil {
-				logger.Error("Credit score check failed", "error", err, "attempt", state.CreditScore.AttemptCount)
+				logger.Error("Credit score check failed", "error", err)
 				// Will retry automatically due to retry policy
-				continue
 			}
 
 			// Credit score check succeeded
@@ -378,7 +373,7 @@ func runWorkflowSteps(ctx workflow.Context, state *LoanOriginationState) error {
 			state.CreditScore.Status = "completed"
 			state.CreditScore.CompletedAt = &now
 
-			logger.Info("Credit score check completed", "score", creditScoreResult.CreditScore, "attempts", state.CreditScore.AttemptCount)
+			logger.Info("Credit score check completed", "score", creditScoreResult.CreditScore)
 
 			// Listen for underwriting decision (only if we have enough documents, appraisal is done, and credit score is obtained)
 			// Allow underwriting even if some documents are rejected - underwriter can decide

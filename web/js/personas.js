@@ -540,7 +540,6 @@ class PersonaManager {
                 <div class="detail-section">
                     <h4>Credit Score</h4>
                     <p><strong>Credit Score:</strong> ${loan.credit_score.score}</p>
-                    ${loan.credit_score.attempt_count ? `<p><strong>Attempts:</strong> ${loan.credit_score.attempt_count}</p>` : ''}
                 </div>
                 ` : ''}
                 

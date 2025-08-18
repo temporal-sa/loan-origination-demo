@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+	"go.temporal.io/sdk/activity"
 )
 
 type GenerateLoanAgreementInput struct {
@@ -18,7 +19,6 @@ type ProcessFundingInput struct {
 type CreditScoreCheckInput struct {
 	LoanApplicationID string `json:"loan_application_id"`
 	BorrowerName      string `json:"borrower_name"`
-	AttemptCount      int    `json:"attempt_count"`
 }
 
 type CreditScoreCheckResult struct {
@@ -46,8 +46,8 @@ func CreditScoreCheck(ctx context.Context, input CreditScoreCheckInput) (*Credit
 	time.Sleep(1 * time.Second)
 	
 	// Simulate failure for first 2 attempts, succeed on 3rd attempt
-	if input.AttemptCount < 3 {
-		return nil, fmt.Errorf("credit score API temporarily unavailable (attempt %d/3)", input.AttemptCount)
+	if activity.GetInfo(ctx).Attempt < 3 {
+		return nil, fmt.Errorf("credit score API temporarily unavailable (attempt %d/3)", activity.GetInfo(ctx).Attempt)
 	}
 	
 	// Generate random credit score between 0-1000
