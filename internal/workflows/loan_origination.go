@@ -5,6 +5,7 @@ import (
 	"loan-origination-system/internal/activities"
 	"time"
 
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -82,6 +83,15 @@ type Appraisal struct {
 	CreatedAt      time.Time  `json:"created_at"`
 }
 
+// Credit score data structure
+type CreditScore struct {
+	ID           string     `json:"id"`
+	Score        int        `json:"score"`
+	Status       string     `json:"status"`
+	CompletedAt  *time.Time `json:"completed_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
 // Underwriting decision data structure
 type UnderwritingDecision struct {
 	ID            string    `json:"id"`
@@ -96,6 +106,7 @@ type LoanOriginationState struct {
 	LoanApplication      LoanApplication       `json:"loan_application"`
 	Documents            []Document            `json:"documents"`
 	Appraisal            *Appraisal            `json:"appraisal"`
+	CreditScore          *CreditScore          `json:"credit_score"`
 	UnderwritingDecision *UnderwritingDecision `json:"underwriting_decision"`
 	Status               string                `json:"status"`
 	NextStep             string                `json:"next_step"`
@@ -319,9 +330,53 @@ func runWorkflowSteps(ctx workflow.Context, state *LoanOriginationState) error {
 				logger.Info("Appraisal completed", "propertyValue", signal.PropertyValue)
 			})
 
-		// Listen for underwriting decision (only if we have enough documents and appraisal is done)
-		// Allow underwriting even if some documents are rejected - underwriter can decide
+		// Perform credit score check after appraisal is completed
 		case len(state.Documents) >= requiredDocuments && appraisalCompleted:
+			state.NextStep = "Performing credit score check"
+
+			// Initialize credit score record if not exists
+			if state.CreditScore == nil {
+				state.CreditScore = &CreditScore{
+					ID:           "credit-score-" + state.LoanApplication.ID,
+					Status:       "in_progress",
+					CreatedAt:    workflow.Now(ctx),
+				}
+			}
+
+			// Retry credit score check with exponential backoff
+			retryOptions := workflow.ActivityOptions{
+				StartToCloseTimeout: 30 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:        1 * time.Second,
+					BackoffCoefficient:     2.0,
+					MaximumInterval:        10 * time.Second,
+					MaximumAttempts:        3,
+					NonRetryableErrorTypes: []string{},
+				},
+			}
+			retryCtx := workflow.WithActivityOptions(ctx, retryOptions)
+
+			var creditScoreResult *activities.CreditScoreCheckResult
+			err := workflow.ExecuteActivity(retryCtx, activities.CreditScoreCheck, activities.CreditScoreCheckInput{
+				LoanApplicationID: state.LoanApplication.ID,
+				BorrowerName:      state.LoanApplication.BorrowerName,
+			}).Get(ctx, &creditScoreResult)
+
+			if err != nil {
+				logger.Error("Credit score check failed", "error", err)
+				// Will retry automatically due to retry policy
+			}
+
+			// Credit score check succeeded
+			now := workflow.Now(ctx)
+			state.CreditScore.Score = creditScoreResult.CreditScore
+			state.CreditScore.Status = "completed"
+			state.CreditScore.CompletedAt = &now
+
+			logger.Info("Credit score check completed", "score", creditScoreResult.CreditScore)
+
+			// Listen for underwriting decision (only if we have enough documents, appraisal is done, and credit score is obtained)
+			// Allow underwriting even if some documents are rejected - underwriter can decide
 
 			state.NextStep = "Waiting for underwriting decision"
 
@@ -341,7 +396,6 @@ func runWorkflowSteps(ctx workflow.Context, state *LoanOriginationState) error {
 				} else {
 					requiredDocuments++
 				}
-
 				logger.Info("Underwriting decision received", "decision", signal.Decision)
 			})
 
